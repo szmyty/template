@@ -1,0 +1,224 @@
+# SPDX-License-Identifier: CC0-1.0
+# SPDX-FileCopyrightText: none
+
+# -----------------------------------------------------------------------------
+# 📌 General Rules
+# -----------------------------------------------------------------------------
+
+# Auto-detect text files and normalize their line endings to LF.
+*                    text=auto eol=lf
+
+# -----------------------------------------------------------------------------
+# 📌 Source Code Files
+# -----------------------------------------------------------------------------
+
+# Shell scripts
+*.sh                 text eol=lf
+*.bash               text eol=lf
+*.zsh                text eol=lf
+*.fish               text eol=lf
+*.csh                text eol=lf
+
+# Batch files for Windows
+*.bat                text eol=crlf
+*.cmd                text eol=crlf
+
+# Web development
+*.css                text diff=css
+*.scss               text diff=css
+*.sass               text
+*.html               text diff=html
+*.htm                text diff=html
+*.xhtml              text diff=html
+*.xml                text
+*.vue                text
+*.svelte             text
+
+# JavaScript & TypeScript
+*.js                 text
+*.jsx                text
+*.ts                 text
+*.tsx                text
+*.d.ts               text
+*.mjs                text
+*.cjs                text
+
+# Backend languages
+*.php                text
+*.java               text
+*.kt                 text
+*.kts                text
+*.cs                 text
+*.go                 text
+*.rs                 text
+*.swift              text
+*.dart               text
+*.groovy             text
+*.scala              text
+*.rb                 text diff=ruby
+*.pl                 text
+*.pm                 text
+*.lua                text
+*.py                 text diff=python
+*.r                  text
+*.R                  text
+*.jl                 text
+*.hs                 text
+*.m                  text
+*.mm                 text
+*.erl                text
+*.ex                 text
+*.exs                text
+
+# C, C++, Objective-C
+*.c                  text
+*.cc                 text
+*.cpp                text
+*.cxx                text
+*.h                  text
+*.hpp                text
+*.hxx                text
+*.m                  text
+*.mm                 text
+
+# Infrastructure & DevOps
+*.tf                 text
+*.tfstate            text -diff
+*.tfvars             text
+*.yml                text
+*.yaml               text
+*.json               text
+*.ini                text
+*.toml               text
+*.cnf                text
+*.conf               text
+*.config             text
+
+# Kubernetes & Docker
+*.k8s.yml            text
+*.kube.yml           text
+*.dockerignore       text
+Dockerfile           text
+docker-compose.yml   text
+
+# CI/CD Pipelines
+.circleci/config.yml text
+*.github/workflows/* text
+*.gitlab-ci.yml      text
+Jenkinsfile          text
+*.jenkinsfile        text
+
+# Lock & Dependency Files
+package.json         text eol=lf
+package-lock.json    text -diff
+pnpm-lock.yaml       text eol=lf -diff
+yarn.lock            text -diff
+composer.lock        text -diff
+Cargo.lock           text -diff
+Gemfile.lock         text -diff
+go.sum               text -diff
+poetry.lock          text -diff
+Pipfile.lock         text -diff
+
+# Documentation
+*.md                 text diff=markdown
+*.markdown           text diff=markdown
+*.rst                text
+*.txt                text
+AUTHORS              text
+LICENSE              text
+COPYING              text
+README               text
+*README*             text
+
+# Logs
+*.log                text -diff
+*.out                text -diff
+*.err                text -diff
+
+# Templates
+*.ejs                text
+*.erb                text
+*.haml               text
+*.hbs                text
+*.mustache           text
+*.njk                text
+*.twig               text
+
+# Miscellaneous
+*.csv                text
+*.tsv                text
+*.properties         text
+*.vcf                text
+*.ics                text
+*.avsc               text
+*.mlmodel            text
+*.jsonnet            text
+*.ipynb              text
+
+# -----------------------------------------------------------------------------
+# 📌 Binary Files
+# -----------------------------------------------------------------------------
+
+# Images
+*.ai                 binary
+*.bmp                binary
+*.eps                binary
+*.gif                binary
+*.ico                binary
+*.jpg                binary
+*.jpeg               binary
+*.png                binary
+*.svg                text
+*.tif                binary
+*.tiff               binary
+*.webp               binary
+*.psd                binary
+*.psb                binary
+
+# Audio
+*.mp3                binary
+*.wav                binary
+*.flac               binary
+*.ogg                binary
+*.m4a                binary
+
+# Video
+*.mp4                binary
+*.mov                binary
+*.avi                binary
+*.mkv                binary
+*.webm               binary
+
+# Fonts
+*.eot                binary
+*.ttf                binary
+*.woff               binary
+*.woff2              binary
+
+# Archives & Compression
+*.zip                binary
+*.tar                binary
+*.gz                 binary
+*.bz2                binary
+*.xz                 binary
+*.7z                 binary
+*.rar                binary
+
+# Executables
+*.exe                binary
+*.dll                binary
+*.so                 binary
+*.dylib              binary
+*.pyc                binary
+*.bin                binary
+*.out                binary
+
+# Machine Learning & Data Science
+*.parquet            binary
+*.orc                binary
+*.h5                 binary
+*.pb                 binary
+*.onnx               binary
+*.hdf5               binary
+.ipynb_checkpoints/* binary

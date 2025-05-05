@@ -1,0 +1,16 @@
+{
+    "folders": [
+        {
+            "path": "."
+        }
+    ],
+    "settings": {
+        "cSpell.words": [
+            "devcontainers",
+            "noninteractive",
+            "PULUMI",
+            "Taskfile"
+        ],
+        "git.ignoreLimitWarning": true
+    }
+}

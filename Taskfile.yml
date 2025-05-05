@@ -1,0 +1,14 @@
+version: "3"
+
+tasks:
+  hello:
+    desc: "Prints hello world"
+    cmds:
+      - echo "Hello, world!"
+    silent: true
+
+  install:deps:
+    desc: "Install dependencies using install_deps.sh"
+    cmds:
+      - bash ./scripts/install_deps.sh
+    silent: true
