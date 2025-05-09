@@ -141,6 +141,10 @@ detect_os_arch() {
     log "🖥️  OS: $OS, Arch: $ARCH"
 }
 
+is_debian() {
+    [[ -f /etc/debian_version ]]
+}
+
 # ------------------------------------------------------------------------------
 # ASDF Installation
 # ------------------------------------------------------------------------------
@@ -293,6 +297,44 @@ install_taskfile() {
     verify_installation "task"
 }
 
+ensure_python_build_deps() {
+    log "🔧 Checking for required Python build dependencies..."
+
+    # Required packages
+    local packages=(
+        build-essential
+        libbz2-dev
+        libncursesw5-dev
+        libreadline-dev
+        libffi-dev
+        libsqlite3-dev
+        liblzma-dev
+        zlib1g-dev
+        tk-dev
+        libssl-dev
+        curl
+        git
+        ca-certificates
+        xz-utils
+    )
+
+    # Determine which ones are missing
+    local missing=()
+    for pkg in "${packages[@]}"; do
+        if ! dpkg -s "$pkg" &>/dev/null; then
+            missing+=("$pkg")
+        fi
+    done
+
+    # Install only if needed
+    if [[ ${#missing[@]} -gt 0 ]]; then
+        log "📦 Installing missing packages: ${missing[*]}"
+        sudo apt-get update && sudo apt-get install -y "${missing[@]}"
+    else
+        log "✅ All required packages already installed."
+    fi
+}
+
 # ------------------------------------------------------------------------------
 # Main
 # ------------------------------------------------------------------------------
@@ -301,9 +343,17 @@ main() {
     # trap 'on_error $LINENO' ERR
     ensure_log_dir
     detect_os_arch
+
+    if is_debian; then
+        log "🧠 Detected Debian-based system"
+        ensure_python_build_deps
+    else
+        log "🚫 Not a Debian-based system — skipping system package setup"
+    fi
+
     install_asdf
     install_asdf_plugins
-    # install_taskfile
+    install_taskfile
     log "🎉 Environment setup complete!"
 }
 
