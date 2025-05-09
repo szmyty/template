@@ -70,7 +70,7 @@ RUN apt-get update \
         tk-dev \
         && apt-get clean \
         && rm -rf /var/lib/apt/lists/*
-    
+
 # Set the devtools directory
 ENV DEVTOOLS_HOME=/opt/devtools
 ENV DEVTOOLS_LOGS=${DEVTOOLS_HOME}/logs

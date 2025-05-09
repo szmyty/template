@@ -1,0 +1,10 @@
+services:
+  hello2:
+    image: busybox
+    command: ["sh", "-c", "while true; do echo '🚀 Hello from extra container'; sleep 5; done"]
+    networks:
+      - shared_net
+
+networks:
+  shared_net:
+    external: true

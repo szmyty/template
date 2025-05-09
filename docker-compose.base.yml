@@ -1,0 +1,18 @@
+# Define common labels for Docker objects
+x-labels: &labels
+  labels:
+    # Name of the application using COMPOSE_PROJECT_NAME
+    app.name: ${COMPOSE_PROJECT_NAME}
+
+# Shared default settings for all services
+x-settings: &settings
+  # Allow containers to access the host machine using host.docker.internal alias
+  extra_hosts:
+    - "host.docker.internal:host-gateway"
+  # Restart the container unless it was explicitly stopped
+  restart: unless-stopped
+  # Set init to true to handle zombie processes
+  init: true
+  # Set the pull policy to pull if not present
+  pull_policy: missing
+

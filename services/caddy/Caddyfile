@@ -1,0 +1,30 @@
+{
+    # Global logger configuration
+    log {
+        output stdout
+        format filter {
+            wrap console
+            fields {
+                request>headers>User-Agent delete
+                request>headers>Cookie delete
+                request>headers>Authorization delete
+                request>headers>Proxy-Authorization delete
+                request>headers>Set-Cookie delete
+            }
+        }
+        level DEBUG
+    }
+
+    http_port {$HTTP_PORT:80}
+    https_port {$HTTPS_PORT:443}
+    storage file_system {$DATA_DIR:/data}
+    storage_clean_interval 24h
+    renew_interval 10m
+    oscp_interval 1h
+    grace_period 10s
+    shutdown_delay 5s
+
+    email {$EMAIL:szmyty@gmail.com}
+    acme_ca {$ACME_CA:https://acme-staging-v02.api.letsencrypt.org/directory}
+}
+

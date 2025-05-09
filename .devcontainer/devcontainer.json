@@ -1,7 +1,12 @@
 {
     "name": "Dev Container",
-    "dockerComposeFile": "docker-compose.yml",
+    "dockerComposeFile": [
+        "docker-compose.yml"
+    ],
     "service": "devcontainer",
+    "runServices": [
+        "devcontainer"
+    ],
     "workspaceFolder": "/workspace",
     "forwardPorts": [
       5173
@@ -13,19 +18,20 @@
       "source=${env:HOME}/.gitconfig,target=/home/vscode/.gitconfig,type=bind,consistency=cached",
     ],
     "remoteUser": "vscode",
+    "initializeCommand": "${localWorkspaceFolder}/.devcontainer/init.sh",
     "postCreateCommand": "chmod 700 /home/vscode/.ssh && chmod 600 /home/vscode/.ssh/*",
     "features": {
-      "ghcr.io/devcontainers/features/docker-in-docker:2": {
-        "version": "27.5",
-        "moby": true,
-        "mobyBuildxVersion": "latest",
-        "dockerDashComposeVersion": "latest",
-        "azureDnsAutoDetection": true,
-        "installDockerBuildx": true,
-        "installDockerComposeSwitch": true,
-        "disableIp6tables": false
-      }
-    },
+        "ghcr.io/devcontainers/features/docker-in-docker:2": {
+          "version": "27.5",
+          "moby": true,
+          "mobyBuildxVersion": "latest",
+          "dockerDashComposeVersion": "latest",
+          "azureDnsAutoDetection": true,
+          "installDockerBuildx": true,
+          "installDockerComposeSwitch": true,
+          "disableIp6tables": false
+        }
+      },
     "customizations": {
       "vscode": {
         "settings": {
@@ -50,9 +56,9 @@
             "redhat.ansible",
             "ms-azuretools.vscode-docker",
             "golang.go",
-            "ms-azuretools.vscode-containers"
+            "ms-azuretools.vscode-containers",
+            "matthewpi.caddyfile-support"
         ]
       }
     }
   }
-  
