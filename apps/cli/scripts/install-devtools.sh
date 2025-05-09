@@ -82,7 +82,10 @@ fi
 # ------------------------------------------------------------------------------
 
 log() {
-    printf "%s 🔹 %s\n" "$(date '+%Y-%m-%d %H:%M:%S')" "$1" | tee -a "$LOG_FILE"
+    local message="$1"
+    local timestamp
+    timestamp="$(date '+%Y-%m-%d %H:%M:%S')"
+    printf "%s 🔹 %s\n" "$timestamp" "$message" | tee -a "$LOG_FILE" >&2
 }
 
 ensure_log_dir() {
@@ -251,18 +254,42 @@ sort_plugins_by_known_plugins() {
 }
 
 gather_plugins_from_tool_versions() {
+    log "🔍 Searching for .tool-versions files..."
+
     local tools
     tools=$(find . -type f -name ".tool-versions" -not -path "*/.*/*" || true)
+
     local plugin_set=()
 
     while IFS= read -r file; do
+        [[ -z "$file" ]] && continue
+        log "📄 Found .tool-versions file: $file"
+
         while IFS= read -r line; do
             [[ "$line" =~ ^#.*$ || -z "$line" ]] && continue
-            plugin_set+=("$(awk '{print $1}' <<<"$line")")
+
+            local plugin
+            plugin=$(awk '{print $1}' <<<"$line")
+            local version
+            version=$(awk '{print $2}' <<<"$line")
+
+            plugin_set+=("$plugin")
+
+            log "   🔧 Plugin detected: $plugin (version: $version)"
         done <"$file"
     done <<<"$tools"
 
-    printf "%s\n" "${plugin_set[@]}" | sort -u
+    local deduped=()
+    local seen=()
+
+    for plugin in "${plugin_set[@]}"; do
+        if [[ ! " ${seen[*]} " =~ " $plugin " ]]; then
+            deduped+=("$plugin")
+            seen+=("$plugin")
+        fi
+    done
+
+    printf "%s\n" "${deduped[@]}"
 }
 
 install_asdf_plugins() {
@@ -271,6 +298,12 @@ install_asdf_plugins() {
     local plugins
     mapfile -t plugins < <(gather_plugins_from_tool_versions)
     sort_plugins_by_known_plugins plugins
+
+    log "📦 Final plugin install list:"
+    for plugin in "${plugins[@]}"; do
+        local cmd="${KNOWN_PLUGINS[$plugin]:-$plugin}"
+        log "   ➤ $plugin → command: $cmd"
+    done
 
     for plugin in "${plugins[@]}"; do
         local cmd="${KNOWN_PLUGINS[$plugin]:-$plugin}"
