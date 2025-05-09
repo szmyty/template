@@ -57,7 +57,8 @@
             "ms-azuretools.vscode-docker",
             "golang.go",
             "ms-azuretools.vscode-containers",
-            "matthewpi.caddyfile-support"
+            "matthewpi.caddyfile-support",
+            "foxundermoon.shell-format"
         ]
       }
     }

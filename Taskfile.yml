@@ -7,8 +7,14 @@ tasks:
       - echo "Hello, world!"
     silent: true
 
-  install:deps:
-    desc: "Install dependencies using install_deps.sh"
+  install:devtools:
+    desc: "Install dependencies using install-devtools.sh"
     cmds:
-      - bash ./scripts/install_deps.sh
+      - bash ./scripts/install-devtools.sh
+    silent: true
+
+  install:devtools:local:
+    desc: "Install dependencies using install-devtools.sh locally in the .cache directory"
+    cmds:
+      - source ./scripts/install-devtools.sh --local --fresh
     silent: true

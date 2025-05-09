@@ -7,5 +7,9 @@
         "LISTCHANGES",
         "noninteractive",
         "NOWARNINGS"
-    ]
+    ],
+    "[shellscript]": {
+        "editor.defaultFormatter": "foxundermoon.shell-format",
+        "editor.formatOnSave": true
+    }
 }

@@ -1,0 +1,19 @@
+[build-system]
+requires = ["poetry-core>=2.1.2"]
+build-backend = "poetry.core.masonry.api"
+
+[tool.poetry]
+name = "cli"
+version = "0.1.0"
+description = "A command line interface for the general use"
+authors = ["Alan Szmyt <szmyty@gmail.com>"]
+license = "MIT"
+readme = "README.md"
+packages = [{ include = "cli" }]
+
+[tool.poetry.dependencies]
+python = "^3.12"
+click = "^8.1.8"
+
+[tool.poetry.scripts]
+cli = "cli.cli:cli"

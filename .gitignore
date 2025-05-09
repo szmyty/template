@@ -2,3 +2,6 @@
 **/node_modules
 **/dist
 **/.pnpm-store
+**/.cache
+*.log
+**__pycache__

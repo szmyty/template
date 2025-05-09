@@ -1,0 +1,7 @@
+[virtualenvs]
+create = true
+in-project = true
+use-poetry-python = false
+
+[virtualenvs.options]
+always-copy = true
