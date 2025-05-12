@@ -196,6 +196,20 @@ setup_docker_cli_config() {
     log "✅ Docker CLI config updated with proxy"
 }
 
+install_devtools() {
+    local script_path="./scripts/install-devtools.sh"
+
+    log "🛠️ Attempting to run install-devtools.sh..."
+
+    if [[ -f "$script_path" && -x "$script_path" ]]; then
+        log "📂 Found $script_path, running with --local..."
+        bash "$script_path"
+        log "✅ install-devtools.sh completed successfully"
+    else
+        log "⚠️ install-devtools.sh not found or not executable at $script_path"
+    fi
+}
+
 # ------------------------------------------------------------------------------
 # Main Execution Entry Point
 # ------------------------------------------------------------------------------
@@ -208,6 +222,7 @@ main() {
     setup_docker_daemon_config
     restart_dockerd
     setup_docker_cli_config
+    install_devtools
 
     log "🎉 post-create.sh completed successfully!"
 }

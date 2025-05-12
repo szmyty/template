@@ -15,10 +15,10 @@
       "source=${localWorkspaceFolder},target=/workspace,type=bind,consistency=cached",
       "source=${env:HOME}/.ssh,target=/home/vscode/.ssh,type=bind,consistency=cached",
       "source=${env:HOME}/.aws,target=/home/vscode/.aws,type=bind,consistency=cached",
-      "source=${env:HOME}/.gitconfig,target=/home/vscode/.gitconfig,type=bind,consistency=cached",
+      "source=${env:HOME}/.gitconfig,target=/home/vscode/.gitconfig,type=bind,consistency=cached"
     ],
     "remoteUser": "vscode",
-    "initializeCommand": "${localWorkspaceFolder}/.devcontainer/init.sh",
+    // "initializeCommand": "${localWorkspaceFolder}/.devcontainer/init.sh",
     "postCreateCommand": "${localWorkspaceFolder}/.devcontainer/post-create.sh",
     "features": {
         "ghcr.io/devcontainers/features/docker-in-docker:2": {
