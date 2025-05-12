@@ -1,0 +1,28 @@
+[build-system]
+requires = ["poetry-core>=2.1.2"]
+build-backend = "poetry.core.masonry.api"
+
+[tool.poetry]
+name = "api"
+version = "0.1.0"
+description = "Backend FastAPI service"
+authors = ["Alan Szmyt <szmyty@gmail.com>"]
+license = "MIT"
+readme = "README.md"
+homepage = "https://example.com"
+repository = "https://github.com/yourname/yourrepo"
+documentation = "https://example.com/docs"
+keywords = ["fastapi", "backend", "api"]
+packages = [{ include = "app" }]
+
+[tool.poetry.dependencies]
+python = "^3.12"  # or match what you specify in .tool-versions
+
+[tool.poetry.dev-dependencies]
+# Add test/dev tools here later, e.g.:
+# pytest = "^7.4"
+# mypy = "^1.8"
+
+[tool.poetry.scripts]
+# Optional: Define CLI entry points if needed
+# serve = "app.main:main"

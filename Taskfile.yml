@@ -18,3 +18,9 @@ tasks:
     cmds:
       - source ./scripts/install-devtools.sh --local --fresh
     silent: true
+
+  dev:
+    desc: "Run the development environment"
+    cmds:
+      - docker-compose -f docker-compose.dev.yml up --build
+    silent: true

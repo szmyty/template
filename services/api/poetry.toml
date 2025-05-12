@@ -1,0 +1,63 @@
+# poetry.toml — Project-specific configuration file for Poetry
+# Reference: https://python-poetry.org/docs/configuration/
+
+cache-dir = "./.cache/poetry"
+data-dir = "{cache-dir}/data"
+
+[virtualenvs]
+create = true  # Automatically create virtual environments
+in-project = true  # Store virtualenvs outside the project directory
+path = "{cache-dir}/virtualenvs"  # Path to store virtual environments
+prompt = "{project_name}-py{python_version}"  # Prompt for the virtual environment
+use-poetry-python = false  # Use the Poetry-managed Python interpreter
+
+[virtualenvs.options]
+always-copy = false  # Always copy files when creating virtualenvs
+no-pip = false  # Do not install pip in the virtual environment
+no-setuptools = false  # Do not install setuptools in the virtual environment
+system-site-packages = false  # Give access to the system site-packages dir
+
+[installer]
+max-workers = null  # Maximum number of workers for parallel installation
+no-binary = []  # List of packages to exclude from binary installation
+only-binary = []  # List of packages to install only as binaries
+parallel = true  # Enable parallel installation
+re-resolve = false  # Re-resolve dependencies during installation
+
+[solver]
+lazy-wheel = false  # Enable lazy wheel building
+
+[repositories]
+# Define additional package repositories here
+# Example:
+# [repositories.my-repo]
+# url = "https://example.com/simple/"
+
+[http-basic]
+# Configure HTTP basic authentication for repositories
+# Example:
+# [http-basic.my-repo]
+# username = "my-username"
+# password = "my-password"
+
+[pypi-token]
+# Configure PyPI tokens for repositories
+# Example:
+# [pypi-token.pypi]
+# token = "my-token"
+
+[certificates]
+# Configure custom certificates for repositories
+# Example:
+# [certificates.my-repo]
+# cert = "/path/to/cert.pem"
+# client-cert = "/path/to/client-cert.pem"
+
+[keyring]
+enabled = true  # Enable keyring support for storing credentials
+
+[experimental]
+system-git-client = false  # Use the system's Git client instead of the built-in one
+
+[python]
+installation-dir = null  # Custom installation directory for Python

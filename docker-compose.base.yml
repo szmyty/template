@@ -15,4 +15,47 @@ x-settings: &settings
   init: true
   # Set the pull policy to pull if not present
   pull_policy: missing
+  # Set the default network mode to bridge
+  networks:
+    default:
+      aliases:
+        - ${COMPOSE_PROJECT_NAME}-network
+      driver: bridge
+  # Apply the common labels to all services
+  <<: *labels
 
+# Define the default network for the containers to use
+networks:
+  default:
+    name: ${COMPOSE_PROJECT_NAME}-network
+    driver: bridge
+    attachable: true
+    driver_opts:
+      com.docker.network.bridge.name: ${COMPOSE_PROJECT_NAME}-bridge
+    <<: *labels
+
+# Define named volumes for persistent storage
+volumes:
+  ui:
+    name: ui
+    driver: local
+  assets:
+    name: assets
+    driver: local
+  keycloak-db:
+    name: keycloak-db
+    driver: local
+
+services:
+  api:
+    container_name: api
+    hostname: api
+    build:
+      context: .
+      dockerfile: ./services/api/Dockerfile
+    healthcheck:
+      test: ["CMD", "curl", "--fail", "http://api:8080/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    <<: *settings

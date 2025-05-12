@@ -19,7 +19,7 @@
     ],
     "remoteUser": "vscode",
     "initializeCommand": "${localWorkspaceFolder}/.devcontainer/init.sh",
-    "postCreateCommand": "chmod 700 /home/vscode/.ssh && chmod 600 /home/vscode/.ssh/*",
+    "postCreateCommand": "${localWorkspaceFolder}/.devcontainer/post-create.sh",
     "features": {
         "ghcr.io/devcontainers/features/docker-in-docker:2": {
           "version": "27.5",

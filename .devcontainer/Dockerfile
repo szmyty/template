@@ -112,7 +112,7 @@ RUN sh -c "$(curl --location https://taskfile.dev/install.sh)" -- -d -b /usr/loc
 COPY --chown=vscode:vscode Taskfile.yml /workspace/Taskfile.yml
 
 # Install asdf and plugins
-RUN task install:deps
+RUN task install:devtools
 
 # Take ownership of the devtools directory
 RUN chown --recursive vscode:vscode ${DEVTOOLS_HOME} && \

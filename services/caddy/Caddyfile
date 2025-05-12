@@ -1,4 +1,6 @@
 {
+
+
     # Global logger configuration
     log {
         output stdout
@@ -29,12 +31,131 @@
 }
 
 {$DOMAIN:localhost} {
+    # Enable compression
     encode zstd gzip
+
+    # Enable templates
     templates
+
+    # Set the root directory for the server
     root * /opt/caddy/fileserver
 
     route {
+        try_files {path} /index.html
+        file_server {
+            browse
+            precompressed zstd br gzip
+            hide *.symlink
+        }
+    }
 
+    # Serve static assets
+    handle_path /assets/* {
+        root * /opt/caddy/fileserver/assets
+        file_server {
+            browse
+            precompressed zstd br gzip
+            hide *.symlink
+        }
+
+        # Enable long-term caching for .svg files
+        @svg path *.svg
+        header @svg {
+            X-Cache-Debug "SVG"
+            Cache-Control "public, max-age=31536000, immutable"
+        }
+
+        # Enable long-term caching for .json files
+        @json path *.json
+        header @json {
+            X-Cache-Debug "JSON"
+            Cache-Control "public, max-age=31536000, immutable"
+        }
+
+        # API server configuration
+        @api_root path /api
+        redir @api_root /api/
+
+        # API endpoint handler.
+        handle_path /api/* {
+            # To ensure the server doesn't run out of memory, we limit the size of the request body to 100MB.
+            request_body {
+                max_size 100mb
+            }
+            reverse_proxy {
+                to api:8000
+                header_up Host {http.request.host}
+                header_up X-Real-IP {http.request.remote}
+                header_up X-Forwarded-For {http.request.remote}
+                header_up X-Forwarded-Proto {http.request.scheme}
+                header_up X-Forwarded-Port {http.request.port}
+                header_down X-Cache-Debug "API"
+            }
+        }
+    }
+
+    # Keycloak /auth handler
+    handle_path /auth/* {
+        reverse_proxy {
+            to keycloak:8080
+            header_up Host {http.request.host}
+            header_up X-Real-IP {http.request.remote}
+            header_up X-Forwarded-For {http.request.remote}
+            header_up X-Forwarded-Proto {http.request.scheme}
+            header_up X-Forwarded-Port {http.request.port}
+            header_up X-Forwarded-Host {http.request.host}
+            header_down X-Cache-Debug "KEYCLOAK"
+        }
+    }
+
+    # Enable in production.
+    # tls /etc/caddy/certs/cert.pem /etc/caddy/certs/key.pem {
+    #     protocols tls1.2 tls1.3
+    # }
+
+    # Not sure if needed if we disable auto_https completely for local.
+    # tls internal
+
+    # Error log configuration
+    log {
+        output file /var/log/caddy/error.log {
+            roll_size 1mb
+            roll_local_time
+            roll_keep 5
+            roll_keep_for 48h
+        }
+        format filter {
+            wrap console
+            fields {
+                request>headers>User-Agent delete
+                request>headers>Cookie delete
+                request>headers>Authorization delete
+                request>headers>Proxy-Authorization delete
+                request>headers>Set-Cookie delete
+            }
+        }
+        level ERROR
+    }
+
+    # Access log configuration
+    log {
+        output file /var/log/caddy/access.log {
+            roll_size 1mb
+            roll_local_time
+            roll_keep 5
+            roll_keep_for 48h
+        }
+        format filter {
+            wrap console
+            fields {
+                request>headers>User-Agent delete
+                request>headers>Cookie delete
+                request>headers>Authorization delete
+                request>headers>Proxy-Authorization delete
+                request>headers>Set-Cookie delete
+            }
+        }
+        level INFO
     }
 }
 
