@@ -1,7 +1,7 @@
 # syntax=docker/dockerfile:1
 
 # Use a base image with common development tools (Ubuntu-based)
-FROM mcr.microsoft.com/devcontainers/base@sha256:eb406d55b2ecd2f8a31d23e4bee50af112d688d169da7457f436f5825c3cef12
+FROM mcr.microsoft.com/devcontainers/base@sha256:a04e0d63bb8087c8931947bed44364b3addeb40591949bbec9b18eafe80fc220
 
 # Proxy Environment Variables
 # https://docs.docker.com/engine/reference/builder/#predefined-args
@@ -87,36 +87,12 @@ ENV ASDF_DATA_DIR=${ASDF_DIR}/data
 ENV ASDF_SHIMS_DIR=${ASDF_DATA_DIR}/shims
 ENV ASDF_CONFIG_FILE=${ASDF_DIR}/.asdfrc
 
-# Add asdf to the PATH
-ENV PATH=${ASDF_SHIMS_DIR}:${ASDF_DIR}/bin:${PATH}
+# Add asdf and Taskfile to the PATH
+ENV TASKFILE_HOME_DIR=${DEVTOOLS_HOME}/taskfile
+ENV PATH=${TASKFILE_HOME_DIR}:${ASDF_SHIMS_DIR}:${ASDF_DIR}/bin:${PATH}
 
 # Set up user workspace
 WORKDIR /workspace
-
-# Copy the asdf configuration file
-COPY --chown=vscode:vscode config/.asdfrc ${ASDF_CONFIG_FILE}
-
-# Copy asdf .tool-versions file for consistent dependency management.
-COPY --chown=vscode:vscode .tool-versions .tool-versions
-
-# Copy setup scripts
-COPY --chown=vscode:vscode scripts/ /workspace/scripts/
-
-# Ensure the scripts are executable
-RUN chmod +x /workspace/scripts/*.sh
-
-# Install Taskfile
-RUN sh -c "$(curl --location https://taskfile.dev/install.sh)" -- -d -b /usr/local/bin
-
-# Copy the Taskfile
-COPY --chown=vscode:vscode Taskfile.yml /workspace/Taskfile.yml
-
-# Install asdf and plugins
-RUN task install:devtools
-
-# Take ownership of the devtools directory
-RUN chown --recursive vscode:vscode ${DEVTOOLS_HOME} && \
-    chmod --recursive 755 ${DEVTOOLS_LOGS}
 
 # Ensure the container keeps running
 CMD ["sleep", "infinity"]

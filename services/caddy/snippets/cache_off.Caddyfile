@@ -1,0 +1,13 @@
+# cache_off.Caddyfile
+#
+# ❌ Completely disables all browser caching.
+# ✅ Ideal for local development or debugging.
+# 🧠 Apply this inside a site block with: `import cache_off`
+
+(cache_off) {
+  header {
+    Cache-Control "no-store, no-cache, must-revalidate, max-age=0"
+    Pragma "no-cache"
+    Expires "0"
+  }
+}

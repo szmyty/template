@@ -1,0 +1,18 @@
+# strip_sensitive_headers.Caddyfile
+#
+# ❌ Strips common headers that leak internal tech details.
+# ✅ Recommended for all production environments.
+
+(strip_sensitive_headers) {
+  header {
+    -Server
+    -X-Powered-By
+    -X-AspNet-Version
+    -X-Pingback
+    -X-Drupal-Cache
+    -X-Generator
+    -X-Runtime
+    -X-Version
+    -X-Cache
+  }
+}

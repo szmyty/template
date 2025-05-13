@@ -20,10 +20,12 @@ trap 'on_error $LINENO' ERR
 # Ensure the script is run as root
 # ------------------------------------------------------------------------------
 
-if [[ "$EUID" -ne 0 ]]; then
-    echo "❌ This script must be run as root. Use 'sudo' or run as root user."
-    exit 1
-fi
+ensure_sudo() {
+    if [[ "$EUID" -ne 0 ]]; then
+        echo "❌ This script must be run as root. Use 'sudo' or run as root user."
+        exit 1
+    fi
+}
 
 # ------------------------------------------------------------------------------
 # Logging Setup
@@ -89,20 +91,15 @@ take_ssh_ownership() {
 setup_user_permissions() {
     log "👤 Ensuring user '${USER_TO_MODIFY}' is in the '${DOCKER_GROUP}' group..."
 
-    # Create docker group if it doesn't already exist
     if ! getent group "$DOCKER_GROUP" >/dev/null; then
         groupadd "$DOCKER_GROUP"
         log "📦 Created group: $DOCKER_GROUP"
     fi
 
-    # Add user to group using long-form flags
     usermod --append --groups "$DOCKER_GROUP" "$USER_TO_MODIFY"
-
-    # Adjust socket ownership to match docker group
     chgrp "$DOCKER_GROUP" "$DOCKER_SOCK"
 
-    log "🔄 Group setup complete — restarting group context..."
-    exec newgrp "$DOCKER_GROUP"
+    log "ℹ️  Group updated. Group changes will take effect on next login shell."
 }
 
 # ------------------------------------------------------------------------------
@@ -196,34 +193,18 @@ setup_docker_cli_config() {
     log "✅ Docker CLI config updated with proxy"
 }
 
-install_devtools() {
-    local script_path="./scripts/install-devtools.sh"
-
-    log "🛠️ Attempting to run install-devtools.sh..."
-
-    if [[ -f "$script_path" && -x "$script_path" ]]; then
-        log "📂 Found $script_path, running with --local..."
-        bash "$script_path"
-        log "✅ install-devtools.sh completed successfully"
-    else
-        log "⚠️ install-devtools.sh not found or not executable at $script_path"
-    fi
-}
-
 # ------------------------------------------------------------------------------
 # Main Execution Entry Point
 # ------------------------------------------------------------------------------
 
 main() {
     log "🚀 Starting DevContainer post-create setup..."
-
+    ensure_sudo
     take_ssh_ownership
     setup_user_permissions
     setup_docker_daemon_config
     restart_dockerd
     setup_docker_cli_config
-    install_devtools
-
     log "🎉 post-create.sh completed successfully!"
 }
 

@@ -17,6 +17,7 @@ packages = [{ include = "app" }]
 
 [tool.poetry.dependencies]
 python = "^3.12"  # or match what you specify in .tool-versions
+fastapi = { extras = ["all"], version = "^0.115.12"}
 
 [tool.poetry.dev-dependencies]
 # Add test/dev tools here later, e.g.:

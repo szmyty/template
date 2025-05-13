@@ -11,7 +11,7 @@
 #   ./install-devtools.sh --local --fresh
 # ------------------------------------------------------------------------------
 
-# set -uo pipefail
+# Utility functions
 
 # Exit on unhandled error with full context
 on_error() {
@@ -21,6 +21,86 @@ on_error() {
     exit "$exit_code"
 }
 
+# @file Terminal
+# @brief Set of useful terminal functions.
+
+# @description Check if script is run in terminal.
+#
+# @noargs
+#
+# @exitcode 0  If script is run on terminal.
+# @exitcode 1 If script is not run on terminal.
+terminal::is_term() {
+    [[ -t 1 || -z ${TERM} ]] && return 0 || return 1
+}
+
+date::now() {
+    declare now
+    now="$(date --universal +%s)" || return $?
+    printf "%s" "${now}"
+}
+
+# --------------------------------------------------------------------
+# Color Codes
+# --------------------------------------------------------------------
+
+log::__color() {
+    case "$1" in
+    red) echo '\033[1;31m' ;;
+    green) echo '\033[1;32m' ;;
+    yellow) echo '\033[1;33m' ;;
+    blue) echo '\033[1;34m' ;;
+    gray) echo '\033[0;90m' ;;
+    none | reset | *) echo '\033[0m' ;;
+    esac
+}
+
+log::__print() {
+    local level="$1"
+    local emoji="$2"
+    local color="$3"
+    local message="$4"
+
+    local timestamp
+    timestamp="$(date '+%Y-%m-%d %H:%M:%S')"
+    local prefix="${emoji} ${level^^}:"
+
+    local log_line_console log_line_file
+
+    if terminal::is_term; then
+        log_line_console=$(printf "%s %b%-12s%b %s" "$timestamp" "$(log::__color "$color")" "$prefix" "$(log::__color reset)" "$message")
+    else
+        log_line_console=$(printf "%s %-12s %s" "$timestamp" "$prefix" "$message")
+    fi
+
+    log_line_file=$(printf "%s %-12s %s" "$timestamp" "$prefix" "$message")
+
+    # Print to console and append to file if defined
+    echo -e "$log_line_console" >&2
+    [[ -n "${LOG_FILE:-}" ]] && echo "$log_line_file" >>"$LOG_FILE"
+}
+
+# --------------------------------------------------------------------
+# Public Logging API
+# --------------------------------------------------------------------
+
+log::info() { log::__print "info" "🔹" blue "$*"; }
+log::warn() { log::__print "warn" "⚠️ " yellow "$*"; }
+log::error() { log::__print "error" "❌" red "$*"; }
+log::success() { log::__print "success" "✅" green "$*"; }
+log::debug() { log::__print "debug" "🐞" gray "$*"; }
+
+log() { log::info "$@"; }
+
+ensure_log_dir() {
+    mkdir --parents "$DEVTOOLS_LOGS"
+    if [[ ! -d "$DEVTOOLS_LOGS" ]]; then
+        log "❌ Failed to create logs directory: $DEVTOOLS_LOGS"
+        exit 1
+    fi
+    log "✅ Logs directory created: $DEVTOOLS_LOGS"
+}
+
 # ------------------------------------------------------------------------------
 # Globals & Configuration
 # ------------------------------------------------------------------------------
@@ -28,13 +108,28 @@ on_error() {
 USE_LOCAL=false
 FRESH_INSTALL=false
 
-DEVTOOLS_LOGS="./logs"
+DEVTOOLS_LOGS="${DEVTOOLS_LOGS:-./logs}"
 TIMESTAMP="$(date '+%Y%m%d_%H%M%S')"
-LOG_FILE="${DEVTOOLS_LOGS}/asdf-install-${TIMESTAMP}.log"
+
+ensure_log_dir
+LOG_FILE="$(cd "$DEVTOOLS_LOGS" && pwd)/asdf-install-${TIMESTAMP}.log"
+log "📁 Logs will be written to $LOG_FILE"
+
 ROOT_DIR="$(pwd)"
 
 ASDF_VERSION="v0.16.7"
 TASKFILE_VERSION="latest"
+
+declare -A KNOWN_PLUGINS=(
+    [nodejs]=node
+    [python]=python3
+    [poetry]=poetry
+    [pnpm]=pnpm
+    [ruby]=ruby
+    [go]=go
+    [java]=java
+    [rust]=rustc
+)
 
 # ------------------------------------------------------------------------------
 # CLI Argument Parsing
@@ -74,24 +169,12 @@ else
     export ASDF_DATA_DIR="${ASDF_DATA_DIR:-$ASDF_DIR/data}"
     export ASDF_CONFIG_FILE="${ASDF_CONFIG_FILE:-$ASDF_DIR/.asdfrc}"
     export ASDF_SHIMS_DIR="${ASDF_SHIMS_DIR:-$ASDF_DATA_DIR/shims}"
-    export TASKFILE_HOME_DIR="/usr/local/bin"
+    export TASKFILE_HOME_DIR="${TASKFILE_HOME_DIR:-/usr/local/bin}"
 fi
 
 # ------------------------------------------------------------------------------
 # Logging
 # ------------------------------------------------------------------------------
-
-log() {
-    local message="$1"
-    local timestamp
-    timestamp="$(date '+%Y-%m-%d %H:%M:%S')"
-    printf "%s 🔹 %s\n" "$timestamp" "$message" | tee -a "$LOG_FILE" >&2
-}
-
-ensure_log_dir() {
-    mkdir --parents "$(dirname "$LOG_FILE")"
-    log "📁 Logs will be written to $LOG_FILE"
-}
 
 # ------------------------------------------------------------------------------
 # Tool Verification
@@ -152,6 +235,10 @@ is_debian() {
 # ASDF Installation
 # ------------------------------------------------------------------------------
 
+has_asdf_plugin() {
+    grep -q "^$1\$" < <(asdf plugin list 2>/dev/null)
+}
+
 install_asdf() {
     local binary_path="${ASDF_DIR}/bin/asdf"
     if [[ -x "$binary_path" ]]; then
@@ -178,58 +265,40 @@ install_asdf() {
 # ------------------------------------------------------------------------------
 install_asdf_plugin() {
     local plugin_name=$1
-    local command_name=$2
 
-    log "🔧 Starting install of asdf plugin: $plugin_name"
-
-    # Confirm which asdf is being used
-    local asdf_path
-    asdf_path="$(command -v asdf || true)"
-    log "🔍 Using asdf at: ${asdf_path:-not found}"
-    if [[ "$USE_LOCAL" == true && "$asdf_path" != "$ASDF_DIR/bin/asdf" ]]; then
-        log "⚠️  WARNING: Expected asdf from $ASDF_DIR/bin/asdf but found: $asdf_path"
-    fi
-
-    # Check and add plugin
-    if ! asdf plugin list | grep -q "^${plugin_name}$"; then
+    if ! has_asdf_plugin "$plugin_name"; then
         log "📥 Adding plugin: $plugin_name"
-        if ! asdf plugin add "$plugin_name"; then
-            log "❌ Failed to add plugin: $plugin_name"
-            return 1
-        fi
+        # if ! asdf plugin add "$plugin_name"; then
+        #     log "❌ Failed to add plugin: $plugin_name"
+        #     return 1
+        # fi
+        log "✅ Plugin added: $plugin_name"
     else
         log "🔁 Plugin already exists: $plugin_name"
     fi
-
-    # Install version(s) from .tool-versions
-    log "📦 Installing $plugin_name version(s)..."
-    if ! asdf install "$plugin_name"; then
-        log "❌ Failed to install plugin versions for: $plugin_name"
-        return 1
-    fi
-
-    # Reshim to generate shims
-    if asdf reshim "$plugin_name"; then
-        log "🔄 Reshimmed plugin: $plugin_name"
-    else
-        log "⚠️ Failed to reshim plugin: $plugin_name"
-    fi
-
-    # Confirm install
-    verify_installation "$command_name" "$plugin_name"
-    log "✅ Plugin installed: $plugin_name"
 }
 
-declare -A KNOWN_PLUGINS=(
-    [nodejs]=node
-    [python]=python3
-    [poetry]=poetry
-    [pnpm]=pnpm
-    [ruby]=ruby
-    [go]=go
-    [java]=java
-    [rust]=rustc
-)
+install_asdf_versions() {
+    log "📦 Installing tool versions from all .tool-versions files..."
+
+    local tool_files
+    mapfile -t tool_files < <(find . -type f -name ".tool-versions" -not -path "*/.*/*")
+
+    for file in "${tool_files[@]}"; do
+        local dir
+        dir="$(dirname "$file")"
+        log "📁 Installing in: $dir"
+
+        pushd "$dir" >/dev/null
+        if asdf install; then
+            log "✅ Installed all versions from: $file"
+            asdf current || log "⚠️ Could not show versions for: $file"
+        else
+            log "❌ Failed to install tools in: $file"
+        fi
+        popd >/dev/null
+    done
+}
 
 sort_plugins_by_known_plugins() {
     local -n input_plugins=$1
@@ -293,22 +362,56 @@ gather_plugins_from_tool_versions() {
 }
 
 install_asdf_plugins() {
-    log "🔍 Using asdf binary at: $(command -v asdf || echo 'not found') to install asdf plugins..."
+    log "🔍 Gathering plugins from .tool-versions files..."
 
-    local plugins
-    mapfile -t plugins < <(gather_plugins_from_tool_versions)
-    sort_plugins_by_known_plugins plugins
+    local tool_files
+    if git rev-parse --is-inside-work-tree &>/dev/null; then
+        mapfile -t tool_files < <(git ls-files --cached --others --exclude-standard '*.tool-versions')
+    else
+        mapfile -t tool_files < <(find . -type f -name ".tool-versions" -not -path "*/.*/*")
+    fi
 
-    log "📦 Final plugin install list:"
-    for plugin in "${plugins[@]}"; do
-        local cmd="${KNOWN_PLUGINS[$plugin]:-$plugin}"
-        log "   ➤ $plugin → command: $cmd"
+    if [[ ${#tool_files[@]} -eq 0 ]]; then
+        log "⚠️ No .tool-versions files found."
+        return
+    fi
+    log "📁 Found ${#tool_files[@]} .tool-versions files."
+
+    local all_plugins=()
+    local seen=()
+
+    for file in "${tool_files[@]}"; do
+        log "📄 Processing .tool-versions file: $file"
+
+        local dir
+        dir="$(dirname "$file")"
+
+        pushd "$dir" >/dev/null
+        log "📍 Moved into: $(pwd) to install dependencies from $file"
+        popd >/dev/null
     done
 
-    for plugin in "${plugins[@]}"; do
-        local cmd="${KNOWN_PLUGINS[$plugin]:-$plugin}"
-        install_asdf_plugin "$plugin" "$cmd"
-    done
+    # for file in "${tool_files[@]}"; do
+    #     log "📄 Processing .tool-versions file: $file"
+    #     # while IFS= read -r line || [[ -n "$line" ]]; do
+    #     #     [[ "$line" =~ ^#.*$ || -z "$line" ]] && continue
+
+    #     #     local plugin
+    #     #     plugin=$(awk '{print $1}' <<<"$line")
+
+    #     #     if [[ ! " ${seen[*]} " =~ " $plugin " ]]; then
+    #     #         seen+=("$plugin")
+    #     #         all_plugins+=("$plugin")
+    #     #     fi
+    #     # done <"$file"
+    # done
+
+    # # Sort plugins by known importance first
+    # sort_plugins_by_known_plugins all_plugins
+
+    # for plugin in "${all_plugins[@]}"; do
+    #     install_asdf_plugin "$plugin"
+    # done
 }
 
 # ------------------------------------------------------------------------------
@@ -373,8 +476,6 @@ ensure_python_build_deps() {
 # ------------------------------------------------------------------------------
 
 main() {
-    # trap 'on_error $LINENO' ERR
-    ensure_log_dir
     detect_os_arch
 
     if is_debian; then
@@ -384,9 +485,16 @@ main() {
         log "🚫 Not a Debian-based system — skipping system package setup"
     fi
 
+    if terminal::is_term; then
+        log "🖥️ Running in terminal"
+    else
+        log "🚫 Not running in terminal — some features may be limited"
+    fi
+
     install_asdf
     install_asdf_plugins
-    install_taskfile
+    # install_asdf_versions
+    # install_taskfile
     log "🎉 Environment setup complete!"
 }
 
