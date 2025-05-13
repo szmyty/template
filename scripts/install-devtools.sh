@@ -11,8 +11,6 @@
 #   ./install-devtools.sh --local --fresh
 # ------------------------------------------------------------------------------
 
-# Utility functions
-
 # Exit on unhandled error with full context
 on_error() {
     local exit_code=$?
@@ -21,17 +19,18 @@ on_error() {
     exit "$exit_code"
 }
 
-# @file Terminal
-# @brief Set of useful terminal functions.
-
-# @description Check if script is run in terminal.
-#
-# @noargs
-#
-# @exitcode 0  If script is run on terminal.
-# @exitcode 1 If script is not run on terminal.
 terminal::is_term() {
     [[ -t 1 || -z ${TERM} ]] && return 0 || return 1
+}
+
+realpath() {
+    local path="$1"
+    if command -v realpath >/dev/null 2>&1; then
+        command realpath "$path"
+    else
+        # Fallback for POSIX systems (no symlink resolution)
+        (cd "$(dirname "$path")" && printf "%s/%s\n" "$(pwd -P)" "$(basename "$path")")
+    fi
 }
 
 date::now() {
@@ -40,9 +39,20 @@ date::now() {
     printf "%s" "${now}"
 }
 
-# --------------------------------------------------------------------
-# Color Codes
-# --------------------------------------------------------------------
+detect_os_arch() {
+    OS="$(uname -s | tr '[:upper:]' '[:lower:]')"
+    ARCH="$(uname -m)"
+    case "$ARCH" in
+    x86_64) ARCH="amd64" ;;
+    aarch64 | arm64) ARCH="arm64" ;;
+    *) log "❌ Unsupported architecture: $ARCH" && exit 1 ;;
+    esac
+    log "🖥️  OS: $OS, Arch: $ARCH"
+}
+
+is_debian() {
+    [[ -f /etc/debian_version ]]
+}
 
 log::__color() {
     case "$1" in
@@ -79,10 +89,6 @@ log::__print() {
     echo -e "$log_line_console" >&2
     [[ -n "${LOG_FILE:-}" ]] && echo "$log_line_file" >>"$LOG_FILE"
 }
-
-# --------------------------------------------------------------------
-# Public Logging API
-# --------------------------------------------------------------------
 
 log::info() { log::__print "info" "🔹" blue "$*"; }
 log::warn() { log::__print "warn" "⚠️ " yellow "$*"; }
@@ -172,14 +178,6 @@ else
     export TASKFILE_HOME_DIR="${TASKFILE_HOME_DIR:-/usr/local/bin}"
 fi
 
-# ------------------------------------------------------------------------------
-# Logging
-# ------------------------------------------------------------------------------
-
-# ------------------------------------------------------------------------------
-# Tool Verification
-# ------------------------------------------------------------------------------
-
 verify_installation() {
     local cmd=$1
     local name=${2:-$cmd}
@@ -210,25 +208,6 @@ verify_installation() {
     local version
     version=$("$resolved_cmd" --version 2>/dev/null || "$resolved_cmd" -v 2>/dev/null || echo "Version info not available")
     log "✅ $name is available at $resolved_cmd: $version"
-}
-
-# ------------------------------------------------------------------------------
-# OS/Arch Detection
-# ------------------------------------------------------------------------------
-
-detect_os_arch() {
-    OS="$(uname -s | tr '[:upper:]' '[:lower:]')"
-    ARCH="$(uname -m)"
-    case "$ARCH" in
-    x86_64) ARCH="amd64" ;;
-    aarch64 | arm64) ARCH="arm64" ;;
-    *) log "❌ Unsupported architecture: $ARCH" && exit 1 ;;
-    esac
-    log "🖥️  OS: $OS, Arch: $ARCH"
-}
-
-is_debian() {
-    [[ -f /etc/debian_version ]]
 }
 
 # ------------------------------------------------------------------------------
@@ -268,36 +247,14 @@ install_asdf_plugin() {
 
     if ! has_asdf_plugin "$plugin_name"; then
         log "📥 Adding plugin: $plugin_name"
-        # if ! asdf plugin add "$plugin_name"; then
-        #     log "❌ Failed to add plugin: $plugin_name"
-        #     return 1
-        # fi
+        if ! asdf plugin add "$plugin_name"; then
+            log "❌ Failed to add plugin: $plugin_name"
+            return 1
+        fi
         log "✅ Plugin added: $plugin_name"
     else
         log "🔁 Plugin already exists: $plugin_name"
     fi
-}
-
-install_asdf_versions() {
-    log "📦 Installing tool versions from all .tool-versions files..."
-
-    local tool_files
-    mapfile -t tool_files < <(find . -type f -name ".tool-versions" -not -path "*/.*/*")
-
-    for file in "${tool_files[@]}"; do
-        local dir
-        dir="$(dirname "$file")"
-        log "📁 Installing in: $dir"
-
-        pushd "$dir" >/dev/null
-        if asdf install; then
-            log "✅ Installed all versions from: $file"
-            asdf current || log "⚠️ Could not show versions for: $file"
-        else
-            log "❌ Failed to install tools in: $file"
-        fi
-        popd >/dev/null
-    done
 }
 
 sort_plugins_by_known_plugins() {
@@ -322,53 +279,20 @@ sort_plugins_by_known_plugins() {
     input_plugins=("${sorted_plugins[@]}")
 }
 
-gather_plugins_from_tool_versions() {
-    log "🔍 Searching for .tool-versions files..."
-
-    local tools
-    tools=$(find . -type f -name ".tool-versions" -not -path "*/.*/*" || true)
-
-    local plugin_set=()
-
-    while IFS= read -r file; do
-        [[ -z "$file" ]] && continue
-        log "📄 Found .tool-versions file: $file"
-
-        while IFS= read -r line; do
-            [[ "$line" =~ ^#.*$ || -z "$line" ]] && continue
-
-            local plugin
-            plugin=$(awk '{print $1}' <<<"$line")
-            local version
-            version=$(awk '{print $2}' <<<"$line")
-
-            plugin_set+=("$plugin")
-
-            log "   🔧 Plugin detected: $plugin (version: $version)"
-        done <"$file"
-    done <<<"$tools"
-
-    local deduped=()
-    local seen=()
-
-    for plugin in "${plugin_set[@]}"; do
-        if [[ ! " ${seen[*]} " =~ " $plugin " ]]; then
-            deduped+=("$plugin")
-            seen+=("$plugin")
-        fi
-    done
-
-    printf "%s\n" "${deduped[@]}"
-}
-
 install_asdf_plugins() {
     log "🔍 Gathering plugins from .tool-versions files..."
 
     local tool_files
     if git rev-parse --is-inside-work-tree &>/dev/null; then
-        mapfile -t tool_files < <(git ls-files --cached --others --exclude-standard '*.tool-versions')
+        mapfile -t tool_files < <(
+            git ls-files --cached --others --exclude-standard '*.tool-versions' |
+                while read -r f; do realpath "$f"; done
+        )
     else
-        mapfile -t tool_files < <(find . -type f -name ".tool-versions" -not -path "*/.*/*")
+        mapfile -t tool_files < <(
+            find . -type f -name ".tool-versions" -not -path "*/.*/*" |
+                while read -r f; do realpath "$f"; done
+        )
     fi
 
     if [[ ${#tool_files[@]} -eq 0 ]]; then
@@ -376,9 +300,6 @@ install_asdf_plugins() {
         return
     fi
     log "📁 Found ${#tool_files[@]} .tool-versions files."
-
-    local all_plugins=()
-    local seen=()
 
     for file in "${tool_files[@]}"; do
         log "📄 Processing .tool-versions file: $file"
@@ -388,30 +309,47 @@ install_asdf_plugins() {
 
         pushd "$dir" >/dev/null
         log "📍 Moved into: $(pwd) to install dependencies from $file"
+
+        local all_plugins=()
+        local seen=()
+
+        while IFS= read -r line || [[ -n "$line" ]]; do
+            [[ "$line" =~ ^#.*$ || -z "$line" ]] && continue
+
+            local plugin
+            plugin=$(awk '{print $1}' <<<"$line")
+
+            if [[ ! " ${seen[*]} " =~ " $plugin " ]]; then
+                seen+=("$plugin")
+                all_plugins+=("$plugin")
+            fi
+        done <"$file"
+        log "🔧 Found plugins: ${all_plugins[*]}"
+
+        sort_plugins_by_known_plugins all_plugins
+        log "🔧 Sorted plugins: ${all_plugins[*]}"
+
+        for plugin in "${all_plugins[@]}"; do
+            install_asdf_plugin "$plugin"
+        done
+
+        log "✅ All plugins installed from $file"
+
+        # Install dependencies now that plugins are installed
+        for plugin in "${all_plugins[@]}"; do
+            local version
+            version=$(awk -v plugin="$plugin" '$1 == plugin {print $2}' "$file")
+            if [[ -n "$version" ]]; then
+                log "📦 Installing $plugin version: $version"
+                asdf install "$plugin" "$version"
+                log "✅ Installed $plugin version: $version"
+            else
+                log "⚠️ No version specified for $plugin in $file"
+            fi
+        done
+
         popd >/dev/null
     done
-
-    # for file in "${tool_files[@]}"; do
-    #     log "📄 Processing .tool-versions file: $file"
-    #     # while IFS= read -r line || [[ -n "$line" ]]; do
-    #     #     [[ "$line" =~ ^#.*$ || -z "$line" ]] && continue
-
-    #     #     local plugin
-    #     #     plugin=$(awk '{print $1}' <<<"$line")
-
-    #     #     if [[ ! " ${seen[*]} " =~ " $plugin " ]]; then
-    #     #         seen+=("$plugin")
-    #     #         all_plugins+=("$plugin")
-    #     #     fi
-    #     # done <"$file"
-    # done
-
-    # # Sort plugins by known importance first
-    # sort_plugins_by_known_plugins all_plugins
-
-    # for plugin in "${all_plugins[@]}"; do
-    #     install_asdf_plugin "$plugin"
-    # done
 }
 
 # ------------------------------------------------------------------------------
@@ -486,15 +424,14 @@ main() {
     fi
 
     if terminal::is_term; then
-        log "🖥️ Running in terminal"
+        log "🖥️  Running in terminal"
     else
         log "🚫 Not running in terminal — some features may be limited"
     fi
 
     install_asdf
     install_asdf_plugins
-    # install_asdf_versions
-    # install_taskfile
+    install_taskfile
     log "🎉 Environment setup complete!"
 }
 
