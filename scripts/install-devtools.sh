@@ -96,6 +96,35 @@ on_error() {
     exit "$exit_code"
 }
 
+bash::info() {
+    local bash_bin
+    bash_bin="$(command -v bash)"
+
+    local version_str
+    version_str="$(bash --version | head -n 1)"
+
+    local major="${BASH_VERSINFO[0]}"
+    local minor="${BASH_VERSINFO[1]}"
+    local patch="${BASH_VERSINFO[2]}"
+
+    log::debug "Bash binary: $bash_bin"
+    log::debug "Bash version string: $version_str"
+    log::debug "BASH_VERSINFO: major=$major, minor=$minor, patch=$patch"
+    log::debug "Shell path: $SHELL"
+    log::debug "Current shell PID: $$"
+}
+
+require_bash_version() {
+    local min_major=4
+    local bash_major="${BASH_VERSINFO[0]}"
+    local bash_minor="${BASH_VERSINFO[1]}"
+
+    if ((bash_major < min_major)); then
+        log "❌ Bash version $bash_major.$bash_minor detected. Bash $min_major.0+ is required."
+        exit 1
+    fi
+}
+
 date::now() {
     declare now
     now="$(date --universal +%s)" || return $?
@@ -172,6 +201,29 @@ init() {
         [java]=java
         [rust]=rustc
     )
+
+    if terminal::is_term; then
+        log "🖥️  Running in terminal"
+    else
+        log "🚫 Not running in terminal — some features may be limited"
+    fi
+
+    detect_os_arch
+
+    bash::info
+
+    readonly original_cwd="$(pwd)"
+    readonly params="$*"
+    readonly script_path="${BASH_SOURCE[0]}"
+    script_dir="$(dirname "$script_path")"
+    script_name="$(basename "$script_path")"
+    readonly script_dir script_name
+
+    log::debug "Original CWD     : $original_cwd"
+    log::debug "Script parameters : $params"
+    log::debug "Script path       : $script_path"
+    log::debug "Script directory  : $script_dir"
+    log::debug "Script name       : $script_name"
 
     # Parse command-line arguments
     for arg in "$@"; do
@@ -376,10 +428,6 @@ install_asdf_plugins() {
     done
 }
 
-# ------------------------------------------------------------------------------
-# Taskfile Installation
-# ------------------------------------------------------------------------------
-
 install_taskfile() {
     local binary_path="${TASKFILE_HOME_DIR}/task"
 
@@ -436,8 +484,6 @@ ensure_python_build_deps() {
 main() {
     init
 
-    detect_os_arch
-
     if is_debian; then
         log "🧠 Detected Debian-based system"
         ensure_python_build_deps
@@ -445,15 +491,9 @@ main() {
         log "🚫 Not a Debian-based system — skipping system package setup"
     fi
 
-    if terminal::is_term; then
-        log "🖥️  Running in terminal"
-    else
-        log "🚫 Not running in terminal — some features may be limited"
-    fi
-
-    # install_asdf
-    # install_asdf_plugins
-    # install_taskfile
+    install_asdf
+    install_asdf_plugins
+    install_taskfile
     log "🎉 Environment setup complete!"
 }
 
