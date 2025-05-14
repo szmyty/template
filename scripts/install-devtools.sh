@@ -299,9 +299,16 @@ has_asdf_plugin() {
 
 install_asdf() {
     local binary_path="${ASDF_DIR}/bin/asdf"
+
+    # If it exists, try to run it
     if [[ -x "$binary_path" ]]; then
-        log "✅ ASDF already installed at $binary_path"
-        return
+        if "$binary_path" --version &>/dev/null; then
+            log "✅ ASDF already installed at $binary_path"
+            return
+        else
+            log::warn "⚠️ Detected existing ASDF, but it failed to execute. Reinstalling..."
+            rm -rf "$ASDF_DIR"
+        fi
     fi
 
     log "📥 Downloading asdf $ASDF_VERSION..."
