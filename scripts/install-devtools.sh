@@ -11,14 +11,6 @@
 #   ./install-devtools.sh --local --fresh
 # ------------------------------------------------------------------------------
 
-# Exit on unhandled error with full context
-on_error() {
-    local exit_code=$?
-    local line_no=$1
-    log "❌ Error on line $line_no. Exit code: $exit_code"
-    exit "$exit_code"
-}
-
 terminal::is_term() {
     [[ -t 1 || -z ${TERM} ]] && return 0 || return 1
 }
@@ -31,6 +23,77 @@ realpath() {
         # Fallback for POSIX systems (no symlink resolution)
         (cd "$(dirname "$path")" && printf "%s/%s\n" "$(pwd -P)" "$(basename "$path")")
     fi
+}
+
+log::emoji_for() {
+    case "$1" in
+    info) printf "🔹" ;;
+    warn) printf "⚠️ " ;;
+    error) printf "❌" ;;
+    success) printf "✅" ;;
+    debug) printf "🐞" ;;
+    *) printf "➖" ;;
+    esac
+}
+
+log::__color() {
+    case "$1" in
+    red) printf '\033[1;31m' ;;
+    green) printf '\033[1;32m' ;;
+    yellow) printf '\033[1;33m' ;;
+    blue) printf '\033[1;34m' ;;
+    gray) printf '\033[0;90m' ;;
+    none | reset | *) printf '\033[0m' ;;
+    esac
+}
+
+log::__print() {
+    local level="$1"
+    local emoji="$2"
+    local color="$3"
+    local message="$4"
+
+    local timestamp
+    timestamp="$(date '+%Y-%m-%d %H:%M:%S')"
+
+    # Bash 3.2-safe uppercasing
+    local upper_level
+    upper_level="$(printf "%s" "$level" | tr '[:lower:]' '[:upper:]')"
+
+    local prefix="${emoji} ${upper_level}:"
+
+    local log_line_console log_line_file
+
+    if terminal::is_term; then
+        log_line_console=$(printf "%s %b%-12s%b %s\n" \
+            "$timestamp" \
+            "$(log::__color "$color")" "$prefix" "$(log::__color reset)" \
+            "$message")
+    else
+        log_line_console=$(printf "%s %-12s %s\n" "$timestamp" "$prefix" "$message")
+    fi
+
+    log_line_file=$(printf "%s %-12s %s\n" "$timestamp" "$prefix" "$message")
+
+    # Print to console and append to log file if defined
+    printf "%s\n" "$log_line_console" >&2
+    [[ -n "${LOG_FILE:-}" ]] && printf "%s\n" "$log_line_file" >>"$LOG_FILE"
+}
+
+log::info() { log::__print "info" "🔹" blue "$*"; }
+log::warn() { log::__print "warn" "⚠️ " yellow "$*"; }
+log::error() { log::__print "error" "❌" red "$*"; }
+log::success() { log::__print "success" "✅" green "$*"; }
+log::debug() { log::__print "debug" "🐞" gray "$*"; }
+
+log() { log::info "$@"; }
+
+# Exit on unhandled error with full context
+on_error() {
+    local exit_code=$?
+    local line_no=$1
+    log "❌ Error on line $line_no. Exit code: $exit_code"
+    exit "$exit_code"
 }
 
 date::now() {
@@ -54,52 +117,28 @@ is_debian() {
     [[ -f /etc/debian_version ]]
 }
 
-log::__color() {
-    case "$1" in
-    red) echo '\033[1;31m' ;;
-    green) echo '\033[1;32m' ;;
-    yellow) echo '\033[1;33m' ;;
-    blue) echo '\033[1;34m' ;;
-    gray) echo '\033[0;90m' ;;
-    none | reset | *) echo '\033[0m' ;;
-    esac
+is_ubuntu() {
+    [[ -f /etc/lsb-release && $(grep -c "DISTRIB_ID=Ubuntu" /etc/lsb-release) -gt 0 ]]
 }
 
-log::__print() {
-    local level="$1"
-    local emoji="$2"
-    local color="$3"
-    local message="$4"
-
-    local timestamp
-    timestamp="$(date '+%Y-%m-%d %H:%M:%S')"
-    local prefix="${emoji} ${level^^}:"
-
-    local log_line_console log_line_file
-
-    if terminal::is_term; then
-        log_line_console=$(printf "%s %b%-12s%b %s" "$timestamp" "$(log::__color "$color")" "$prefix" "$(log::__color reset)" "$message")
-    else
-        log_line_console=$(printf "%s %-12s %s" "$timestamp" "$prefix" "$message")
-    fi
-
-    log_line_file=$(printf "%s %-12s %s" "$timestamp" "$prefix" "$message")
-
-    # Print to console and append to file if defined
-    echo -e "$log_line_console" >&2
-    [[ -n "${LOG_FILE:-}" ]] && echo "$log_line_file" >>"$LOG_FILE"
+is_macos() {
+    [[ "$OS" == "darwin" ]]
 }
 
-log::info() { log::__print "info" "🔹" blue "$*"; }
-log::warn() { log::__print "warn" "⚠️ " yellow "$*"; }
-log::error() { log::__print "error" "❌" red "$*"; }
-log::success() { log::__print "success" "✅" green "$*"; }
-log::debug() { log::__print "debug" "🐞" gray "$*"; }
+is_linux() {
+    [[ "$OS" == "linux" ]]
+}
 
-log() { log::info "$@"; }
+is_windows() {
+    [[ "$OS" == "cygwin" || "$OS" == "mingw"* ]]
+}
+
+is_wsl() {
+    [[ "$OS" == "linux" && -f /proc/version && $(grep -c "Microsoft" /proc/version) -gt 0 ]]
+}
 
 ensure_log_dir() {
-    mkdir --parents "$DEVTOOLS_LOGS"
+    mkdir -p "$DEVTOOLS_LOGS"
     if [[ ! -d "$DEVTOOLS_LOGS" ]]; then
         log "❌ Failed to create logs directory: $DEVTOOLS_LOGS"
         exit 1
@@ -107,76 +146,68 @@ ensure_log_dir() {
     log "✅ Logs directory created: $DEVTOOLS_LOGS"
 }
 
-# ------------------------------------------------------------------------------
-# Globals & Configuration
-# ------------------------------------------------------------------------------
+init() {
+    USE_LOCAL=false
+    FRESH_INSTALL=false
 
-USE_LOCAL=false
-FRESH_INSTALL=false
+    DEVTOOLS_LOGS="${DEVTOOLS_LOGS:-./logs}"
+    TIMESTAMP="$(date '+%Y%m%d_%H%M%S')"
 
-DEVTOOLS_LOGS="${DEVTOOLS_LOGS:-./logs}"
-TIMESTAMP="$(date '+%Y%m%d_%H%M%S')"
+    ensure_log_dir
+    LOG_FILE="$(cd "$DEVTOOLS_LOGS" && pwd)/asdf-install-${TIMESTAMP}.log"
+    log "📁 Logs will be written to $LOG_FILE"
 
-ensure_log_dir
-LOG_FILE="$(cd "$DEVTOOLS_LOGS" && pwd)/asdf-install-${TIMESTAMP}.log"
-log "📁 Logs will be written to $LOG_FILE"
+    ROOT_DIR="$(pwd)"
 
-ROOT_DIR="$(pwd)"
+    ASDF_VERSION="v0.16.7"
+    TASKFILE_VERSION="latest"
 
-ASDF_VERSION="v0.16.7"
-TASKFILE_VERSION="latest"
+    declare -A KNOWN_PLUGINS=(
+        [nodejs]=node
+        [python]=python3
+        [poetry]=poetry
+        [pnpm]=pnpm
+        [ruby]=ruby
+        [go]=go
+        [java]=java
+        [rust]=rustc
+    )
 
-declare -A KNOWN_PLUGINS=(
-    [nodejs]=node
-    [python]=python3
-    [poetry]=poetry
-    [pnpm]=pnpm
-    [ruby]=ruby
-    [go]=go
-    [java]=java
-    [rust]=rustc
-)
+    # Parse command-line arguments
+    for arg in "$@"; do
+        case "$arg" in
+        --local) USE_LOCAL=true ;;
+        --fresh) FRESH_INSTALL=true ;;
+        *) echo "❌ Unknown argument: $arg" && exit 1 ;;
+        esac
+    done
 
-# ------------------------------------------------------------------------------
-# CLI Argument Parsing
-# ------------------------------------------------------------------------------
+    # Set up environment variables based on arguments
+    if [[ "$USE_LOCAL" == true ]]; then
+        export ASDF_DIR="${ROOT_DIR}/.cache/asdf"
+        export ASDF_DATA_DIR="${ASDF_DIR}/data"
+        export ASDF_CONFIG_FILE="${ROOT_DIR}/.asdfrc"
+        export ASDF_SHIMS_DIR="${ASDF_DATA_DIR}/shims"
+        export TASKFILE_HOME_DIR="${ROOT_DIR}/.cache/taskfile"
+        export PATH="${ASDF_DIR}/bin:${ASDF_SHIMS_DIR}:${TASKFILE_HOME_DIR}:${PATH}"
 
-for arg in "$@"; do
-    case "$arg" in
-    --local) USE_LOCAL=true ;;
-    --fresh) FRESH_INSTALL=true ;;
-    *) echo "❌ Unknown argument: $arg" && exit 1 ;;
-    esac
-done
+        if [[ "$FRESH_INSTALL" == true ]]; then
+            log "🧼 Fresh install requested — deleting .cache/"
+            rm -rf "${ROOT_DIR}/.cache"
+        fi
+    else
+        if [[ "$FRESH_INSTALL" == true ]]; then
+            log "⚠️  Ignoring --fresh: only valid with --local"
+            FRESH_INSTALL=false
+        fi
 
-# ------------------------------------------------------------------------------
-# Local Directory Setup
-# ------------------------------------------------------------------------------
-
-if [[ "$USE_LOCAL" == true ]]; then
-    export ASDF_DIR="${ROOT_DIR}/.cache/asdf"
-    export ASDF_DATA_DIR="${ASDF_DIR}/data"
-    export ASDF_CONFIG_FILE="${ROOT_DIR}/.asdfrc"
-    export ASDF_SHIMS_DIR="${ASDF_DATA_DIR}/shims"
-    export TASKFILE_HOME_DIR="${ROOT_DIR}/.cache/taskfile"
-    export PATH="${ASDF_DIR}/bin:${ASDF_SHIMS_DIR}:${TASKFILE_HOME_DIR}:${PATH}"
-
-    if [[ "$FRESH_INSTALL" == true ]]; then
-        echo "🧼 Fresh install requested — deleting .cache/"
-        rm -rf "${ROOT_DIR}/.cache"
+        export ASDF_DIR="${ASDF_DIR:-$HOME/.asdf}"
+        export ASDF_DATA_DIR="${ASDF_DATA_DIR:-$ASDF_DIR/data}"
+        export ASDF_CONFIG_FILE="${ASDF_CONFIG_FILE:-$ASDF_DIR/.asdfrc}"
+        export ASDF_SHIMS_DIR="${ASDF_SHIMS_DIR:-$ASDF_DATA_DIR/shims}"
+        export TASKFILE_HOME_DIR="${TASKFILE_HOME_DIR:-/usr/local/bin}"
     fi
-else
-    if [[ "$FRESH_INSTALL" == true ]]; then
-        echo "⚠️  Ignoring --fresh: only valid with --local"
-        FRESH_INSTALL=false
-    fi
-
-    export ASDF_DIR="${ASDF_DIR:-$HOME/.asdf}"
-    export ASDF_DATA_DIR="${ASDF_DATA_DIR:-$ASDF_DIR/data}"
-    export ASDF_CONFIG_FILE="${ASDF_CONFIG_FILE:-$ASDF_DIR/.asdfrc}"
-    export ASDF_SHIMS_DIR="${ASDF_SHIMS_DIR:-$ASDF_DATA_DIR/shims}"
-    export TASKFILE_HOME_DIR="${TASKFILE_HOME_DIR:-/usr/local/bin}"
-fi
+}
 
 verify_installation() {
     local cmd=$1
@@ -210,10 +241,6 @@ verify_installation() {
     log "✅ $name is available at $resolved_cmd: $version"
 }
 
-# ------------------------------------------------------------------------------
-# ASDF Installation
-# ------------------------------------------------------------------------------
-
 has_asdf_plugin() {
     grep -q "^$1\$" < <(asdf plugin list 2>/dev/null)
 }
@@ -231,7 +258,7 @@ install_asdf() {
         --output asdf.tar.gz
 
     tar -xzf asdf.tar.gz
-    mkdir --parents "$(dirname "$binary_path")"
+    mkdir -p "$(dirname "$binary_path")"
     chmod +x asdf
     mv asdf "$binary_path"
     rm -f asdf.tar.gz
@@ -239,9 +266,6 @@ install_asdf() {
     log "✅ ASDF installed to $binary_path"
 }
 
-# ------------------------------------------------------------------------------
-# Plugin Installation
-# ------------------------------------------------------------------------------
 install_asdf_plugin() {
     local plugin_name=$1
 
@@ -409,11 +433,9 @@ ensure_python_build_deps() {
     fi
 }
 
-# ------------------------------------------------------------------------------
-# Main
-# ------------------------------------------------------------------------------
-
 main() {
+    init
+
     detect_os_arch
 
     if is_debian; then
@@ -429,9 +451,9 @@ main() {
         log "🚫 Not running in terminal — some features may be limited"
     fi
 
-    install_asdf
-    install_asdf_plugins
-    install_taskfile
+    # install_asdf
+    # install_asdf_plugins
+    # install_taskfile
     log "🎉 Environment setup complete!"
 }
 
