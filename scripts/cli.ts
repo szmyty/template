@@ -1,98 +1,60 @@
 #!/usr/bin/env node
 
-import { Command, InvalidArgumentError } from "commander";
+import { Command } from "commander";
+import { initializeSession, getSessionLogger } from "./logger";
 import { readFileSync } from "fs";
-import path from "path";
 
 const program = new Command();
 
+let sessionId = ""; // Will store --session or generated UUID
+let logger: ReturnType<typeof getSessionLogger>;
+
 program
   .name("my-cli")
-  .description("A powerful CLI tool")
   .version("1.0.0")
-  .option("-v, --verbose", "enable verbose logging")
-  .option("-c, --config <path>", "path to config file", "config.json")
+  .option("--session <uuid>", "Session ID for logging")
+  .option("--verbose", "Enable debug logging")
+  .option("--config <path>", "Path to config file", "config.json")
   .hook("preAction", (thisCommand) => {
-    if (thisCommand.opts().verbose) {
-      console.log("[DEBUG] Verbose mode enabled");
+    // Session setup
+    const opts = thisCommand.opts();
+    sessionId = initializeSession(opts.session);
+    logger = getSessionLogger(sessionId);
+
+    logger.info({ event: "cli-start", args: process.argv.slice(2), session: sessionId });
+    if (opts.verbose) {
+      logger.info("Verbose logging enabled");
+      console.log("[DEBUG] Logger initialized for session:", sessionId);
     }
   });
 
-/**
- * validatePort: parse int and throw on invalid input
- */
-function validatePort(value: string): number {
-  const port = parseInt(value, 10);
-  if (isNaN(port) || port <= 0 || port > 65535) {
-    throw new InvalidArgumentError("Port must be a number between 1 and 65535.");
-  }
-  return port;
-}
-
-/**
- * convert command
- */
 program
   .command("convert <input> [output]")
-  .description("Convert a file from one format to another")
-  .option("-f, --format <format>", "Target format (json, csv, xml)", "json")
-  .action((input, output, options, command) => {
-    console.log(">> convert:");
-    console.log({ input, output, format: options.format });
-    if (command.parent?.opts().verbose) {
-      console.log("[DEBUG] convert options:", command.opts());
-    }
+  .description("Convert a file")
+  .option("-f, --format <format>", "Target format", "json")
+  .action((input, output, options) => {
+    logger.info({ event: "convert", input, output, format: options.format });
+    console.log(`Converting ${input} to ${options.format}...`);
   });
 
-/**
- * serve command
- */
-program
-  .command("serve")
-  .description("Start a local server")
-  .option("-p, --port <number>", "Port to listen on", validatePort, 8080)
-  .option("--host <string>", "Hostname", "localhost")
-  .action((options) => {
-    console.log(">> serve:");
-    console.log(`Starting server on ${options.host}:${options.port}`);
-  });
-
-/**
- * analyze command with variadic input
- */
-program
-  .command("analyze [files...]")
-  .description("Analyze one or more files")
-  .option("--report <type>", "Report type (summary, full)", "summary")
-  .action((files, options) => {
-    console.log(">> analyze:");
-    console.log({ files, report: options.report });
-  });
-
-/**
- * config command that loads a file
- */
 program
   .command("config get <key>")
-  .description("Get a config value")
-  .action((key, options, command) => {
-    const configPath = command.parent?.opts().config ?? "config.json";
-    const config = JSON.parse(readFileSync(configPath, "utf-8"));
-    console.log(`Config value for "${key}":`, config[key]);
+  .description("Fetch config value")
+  .action((key) => {
+    const config = JSON.parse(readFileSync(program.opts().config, "utf-8"));
+    logger.info({ event: "config:get", key, value: config[key] });
+    console.log(`Config[${key}]: ${config[key]}`);
   });
 
-/**
- * async example
- */
 program
   .command("sleep <ms>")
-  .description("Wait for N milliseconds then exit")
-  .action(async (ms: string) => {
+  .description("Sleep for N milliseconds")
+  .action(async (ms) => {
     const delay = parseInt(ms, 10);
-    if (isNaN(delay)) throw new Error("Invalid number");
-    console.log(`Sleeping for ${delay}ms...`);
-    await new Promise((res) => setTimeout(res, delay));
-    console.log("Awake!");
+    logger.info({ event: "sleep:start", ms: delay });
+    await new Promise((r) => setTimeout(r, delay));
+    logger.info("Woke up");
+    console.log("Done sleeping.");
   });
 
 program.parse();
