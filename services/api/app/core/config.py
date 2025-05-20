@@ -7,6 +7,11 @@ class Settings(BaseSettings):
     ALLOWED_HOSTS: list[str] = ["*"]
     DEBUG: bool = False
     DATABASE_URL: str = "sqlite:///./test.db"
+    API_TOKEN: str = "secret-token"
+
+class Config:
+    env_file = ".env"
+    env_file_encoding = "utf-8"
 
     # Keycloak configuration. These values can be overridden via environment
     # variables to point the service at your Keycloak instance.
@@ -16,10 +21,5 @@ class Settings(BaseSettings):
     KEYCLOAK_CLIENT_SECRET: str | None = None
     KEYCLOAK_ADMIN_CLIENT_SECRET: str | None = None
     KEYCLOAK_CALLBACK_URI: str = "http://localhost:8000/auth/callback"
-
-    class Config:
-        env_file = ".env"
-        env_file_encoding = "utf-8"
-
 
 settings = Settings()

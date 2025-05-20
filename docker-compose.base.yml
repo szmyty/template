@@ -44,6 +44,9 @@ volumes:
   keycloak-db:
     name: keycloak-db
     driver: local
+  db-data:
+    name: db-data
+    driver: local
 
 services:
   caddy:
@@ -71,4 +74,23 @@ services:
       interval: 30s
       timeout: 10s
       retries: 3
+    depends_on:
+      - db
+    environment:
+      DATABASE_URL: ${DATABASE_URL}
+      API_TOKEN: ${API_TOKEN}
+    <<: *settings
+
+  db:
+    container_name: db
+    image: postgis/postgis:16-3.4
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    volumes:
+      - db-data:/var/lib/postgresql/data
+      - ./services/db/initdb:/docker-entrypoint-initdb.d
+    ports:
+      - "5432:5432"
     <<: *settings

@@ -6,12 +6,17 @@ from starlette.status import HTTP_404_NOT_FOUND
 from fastapi_keycloak import FastAPIKeycloak
 from app.api.routes import router as api_router
 from app.core.config import settings
+from app.models import Base
+from app.database import engine
 
 app = FastAPI(
     title=settings.PROJECT_NAME,
     description=settings.PROJECT_DESCRIPTION,
     version=settings.PROJECT_VERSION,
 )
+
+# Ensure database tables exist
+Base.metadata.create_all(bind=engine)
 
 # Initialize Keycloak integration. These values are loaded from environment
 # variables via the Settings class.
