@@ -52,3 +52,15 @@ export default tseslint.config({
   },
 })
 ```
+
+## Keycloak Authentication
+
+This project now integrates [keycloak-js](https://www.npmjs.com/package/keycloak-js) for authentication. Create a `.env` file in this directory with the following variables:
+
+```
+VITE_KEYCLOAK_URL=http://localhost:8080/auth
+VITE_KEYCLOAK_REALM=example
+VITE_KEYCLOAK_CLIENT_ID=frontend
+```
+
+When the application starts it will redirect you to Keycloak for login.

@@ -1,0 +1,78 @@
+version: "3.8"
+
+services:
+  caddy:
+    image: caddy:2
+    container_name: caddy
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./services/caddy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - ./services/caddy/assets:/usr/share/caddy/assets:ro
+    depends_on:
+      - frontend
+      - api
+      - keycloak
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+
+  keycloak-db:
+    image: postgres:15
+    container_name: keycloak-db
+    environment:
+      POSTGRES_DB: keycloak
+      POSTGRES_USER: keycloak
+      POSTGRES_PASSWORD: password
+    volumes:
+      - keycloak-db:/var/lib/postgresql/data
+
+  keycloak:
+    image: quay.io/keycloak/keycloak:24.0.5
+    container_name: keycloak
+    command: ["start-dev", "--http-port=8080", "--hostname-strict=false", "--hostname=localhost"]
+    environment:
+      KC_DB: postgres
+      KC_DB_URL: jdbc:postgresql://keycloak-db:5432/keycloak
+      KC_DB_USERNAME: keycloak
+      KC_DB_PASSWORD: password
+      KEYCLOAK_ADMIN: admin
+      KEYCLOAK_ADMIN_PASSWORD: admin
+    ports:
+      - "8080:8080"
+    depends_on:
+      - keycloak-db
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+
+  api:
+    image: python:3.12-slim
+    container_name: api
+    working_dir: /app
+    command: ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]
+    volumes:
+      - ./services/api:/app
+    environment:
+      - PYTHONUNBUFFERED=1
+    ports:
+      - "8000:8000"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+
+  frontend:
+    image: node:20
+    container_name: frontend
+    working_dir: /app
+    command: ["npm", "run", "dev", "--", "--host"]
+    volumes:
+      - ./apps/ui/vite-project:/app
+    ports:
+      - "5173:5173"
+    depends_on:
+      - keycloak
+      - api
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+
+volumes:
+  keycloak-db:

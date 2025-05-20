@@ -3,5 +3,6 @@
 **/dist
 **/.pnpm-store
 **/.cache
+*.env
 *.log
 **__pycache__

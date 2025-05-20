@@ -13,5 +13,13 @@ class Config:
     env_file = ".env"
     env_file_encoding = "utf-8"
 
+    # Keycloak configuration. These values can be overridden via environment
+    # variables to point the service at your Keycloak instance.
+    KEYCLOAK_SERVER_URL: str = "http://localhost:8080/"
+    KEYCLOAK_REALM: str = "master"
+    KEYCLOAK_CLIENT_ID: str = "fastapi"
+    KEYCLOAK_CLIENT_SECRET: str | None = None
+    KEYCLOAK_ADMIN_CLIENT_SECRET: str | None = None
+    KEYCLOAK_CALLBACK_URI: str = "http://localhost:8000/auth/callback"
 
 settings = Settings()
