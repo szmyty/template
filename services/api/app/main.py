@@ -5,12 +5,17 @@ from starlette.exceptions import HTTPException
 from starlette.status import HTTP_404_NOT_FOUND
 from app.api.routes import router as api_router
 from app.core.config import settings
+from app.models import Base
+from app.database import engine
 
 app = FastAPI(
     title=settings.PROJECT_NAME,
     description=settings.PROJECT_DESCRIPTION,
     version=settings.PROJECT_VERSION,
 )
+
+# Ensure database tables exist
+Base.metadata.create_all(bind=engine)
 
 app.include_router(api_router, tags=["api"])
 

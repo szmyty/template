@@ -7,7 +7,11 @@ class Settings(BaseSettings):
     ALLOWED_HOSTS: list[str] = ["*"]
     DEBUG: bool = False
     DATABASE_URL: str = "sqlite:///./test.db"
+    API_TOKEN: str = "secret-token"
 
-    class Config:
-        env_file = ".env"
-        env_file_encoding = "utf-8"
+class Config:
+    env_file = ".env"
+    env_file_encoding = "utf-8"
+
+
+settings = Settings()
